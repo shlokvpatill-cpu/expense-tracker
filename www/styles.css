@@ -562,6 +562,20 @@ button:not(:disabled):active, .btn:active { transform: translateY(1px); }
   .quick button { min-height: 56px; }
 }
 
+/* Add expenses: "Usual" buttons, and the note under a row (amount worked out / rate well off) */
+.quick-add { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0 0 12px; }
+.quick-add .muted { font-size: 12px; margin-right: 2px; }
+.quick-add .chip { font-size: 13px; padding: 5px 11px; border-radius: 99px; border: 1px solid var(--line); background: var(--panel-2); }
+.quick-add .chip:hover { border-color: var(--accent-line); background: var(--accent-soft); filter: none; }
+.bulk-note { grid-column: 1 / -1; font-size: 12px; color: var(--muted); padding: 0 2px; }
+.bulk-note:empty { display: none; }
+.bulk-note.warn { color: var(--warn); font-weight: 600; }
+@media (max-width: 760px) { .quick-add { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; } .quick-add .chip { flex-shrink: 0; min-height: 38px; } }
+
+/* "Deleted … Undo" */
+.toast.undo { display: flex; align-items: center; gap: 14px; white-space: normal; }
+.toast.undo button.link { color: inherit; font-weight: 700; text-decoration: underline; padding: 2px 4px; min-height: 0; }
+
 /* Settings → "Show keyboard shortcut hints" off */
 .hide-hints .nav a .key, .hide-hints .kbd-hint { display: none !important; }
 

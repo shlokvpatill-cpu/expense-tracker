@@ -215,6 +215,64 @@ test('an item whose price changes daily asks for today\'s price', async ({ page 
   await expect(page.getByLabel('Surmai Fry price today')).toHaveValue('350');
 });
 
+// add expenses on a chosen day: rows = [[description, amount], …]
+async function addExpensesOn(page, date, rows) {
+  await openPage(page, 'expenses');
+  await page.getByRole('button', { name: '+ Add expense' }).click();
+  const modal = page.getByRole('dialog', { name: 'Add expenses' });
+  await modal.getByLabel('Date (for all rows)').fill(date);
+  for (let i = 0; i < rows.length; i++) {
+    await modal.locator('.bulk-row').nth(i).locator('[data-f=desc]').fill(rows[i][0]);
+    await modal.locator('.bulk-row').nth(i).locator('[data-f=amount]').fill(String(rows[i][1]));
+  }
+  await modal.getByRole('button', { name: 'Save all' }).click();
+  await expect(modal).toBeHidden();
+}
+
+test('deleting shows Undo instead of asking, and Undo puts it back', async ({ page }) => {
+  let asked = false;
+  page.on('dialog', () => { asked = true; });
+  await addExpense(page, { desc: 'Gas cylinder', amount: 950 });
+  await page.locator('#view tr', { hasText: 'Gas cylinder' }).getByRole('button', { name: 'Delete' }).click();
+  await expect(page.locator('#view table').getByText('Gas cylinder')).toHaveCount(0);
+  await expect(page.locator('.toast')).toContainText('Deleted expense');
+  await page.locator('.toast').getByRole('button', { name: 'Undo' }).click();
+  await expect(page.locator('#view table').getByText('Gas cylinder')).toBeVisible();
+  await expect(tile(page, 'Total expenses')).toHaveText('₹950');
+  expect(asked).toBe(false);
+});
+
+test('the same expense twice on one day asks before adding it again', async ({ page }) => {
+  await addExpense(page, { desc: 'Pav (30)', amount: 480 });
+  let message = '';
+  page.removeAllListeners('dialog');
+  page.on('dialog', d => { message = d.message(); d.dismiss(); });
+  await page.getByRole('button', { name: '+ Add expense' }).click();
+  const modal = page.getByRole('dialog', { name: 'Add expenses' });
+  await modal.locator('.bulk-row').first().locator('[data-f=desc]').fill('pav (30)');
+  await modal.locator('.bulk-row').first().locator('[data-f=amount]').fill('480');
+  await modal.getByRole('button', { name: 'Save all' }).click();
+  await expect.poll(() => message).toContain('Already entered');
+  await expect(modal).toBeVisible(); // said no: nothing added
+});
+
+test('usual items: one tap, quantity in brackets fills the amount, odd rates are pointed out', async ({ page }) => {
+  await addExpensesOn(page, '2026-11-09', [['Chapati (350)', 1575]]);
+  await addExpensesOn(page, '2026-11-10', [['Chapati (400)', 1800]]);
+  await page.getByRole('button', { name: '+ Add expense' }).click();
+  const modal = page.getByRole('dialog', { name: 'Add expenses' });
+  await modal.locator('.quick-add').getByRole('button', { name: 'Chapati' }).click();
+  const row = modal.locator('.bulk-row').first();
+  await expect(row.locator('[data-f=desc]')).toHaveValue('Chapati ()');
+  await expect(row.locator('[data-f=desc]')).toBeFocused();
+  await page.keyboard.type('300');
+  await expect(row.locator('[data-f=desc]')).toHaveValue('Chapati (300)');
+  await expect(row.locator('[data-f=amount]')).toHaveValue('1350');
+  await expect(row.locator('[data-f=category]')).toHaveValue('Chapati, Pav & Bhakri');
+  await row.locator('[data-f=amount]').fill('1800');
+  await expect(row.locator('.bulk-note')).toContainText('usually');
+});
+
 test('shortcut hints can be hidden', async ({ page, isMobile }) => {
   test.skip(isMobile, 'the phone app shows no shortcut hints');
   await openPage(page, 'dashboard');

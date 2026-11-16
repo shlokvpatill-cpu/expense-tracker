@@ -154,6 +154,8 @@ async function getBlob(id) {
 async function deleteFiles(ids) {
   if (!ids || !ids.length) return;
   for (const id of ids) {
+    // while "Undo" is offered, the photo itself is kept; it goes when the offer ends
+    if (pendingFileDeletes) { pendingFileDeletes.push(id); continue; }
     await store.deleteFile(id);
     if (urlCache[id]) { URL.revokeObjectURL(urlCache[id]); delete urlCache[id]; }
   }
@@ -532,11 +534,66 @@ function formModal({ title, fields, submit = 'Save', onSave, after, note = '' })
     <button type="submit">${esc(submit)}</button></div></form>`);
 }
 
-function confirmDel(what, fn) {
-  if (confirm(`Delete ${what}? This cannot be undone.`)) {
-    Promise.resolve(fn()).then(save).then(() => { toast('Deleted'); render(); });
+/* ---------- delete with Undo ----------
+   Deleting happens straight away, with an "Undo" button for a few seconds instead of an
+   "Are you sure?" question. Undo puts back only what the delete removed, so anything
+   entered in the meantime is kept. */
+let pendingFileDeletes = null, undoOffer = null;
+const LIST_KEYS = ['owners', 'helpers', 'vendors', 'customers', 'items', 'sales', 'itemSales', 'expenses',
+  'vendorPayments', 'helperTx', 'ownerTx', 'creditTx', 'files'];
+const recKey = x => x.id || x.date;
+async function endUndoOffer() {
+  const o = undoOffer;
+  if (!o) return;
+  undoOffer = null;
+  clearTimeout(o.timer);
+  if (o.el.isConnected) o.el.remove();
+  // the offer is over: now the bill photos of deleted entries really go
+  const keep = new Set(S.files.map(f => f.id));
+  for (const id of o.files) if (!keep.has(id)) {
+    await store.deleteFile(id);
+    if (urlCache[id]) { URL.revokeObjectURL(urlCache[id]); delete urlCache[id]; }
   }
 }
+async function undoable(what, fn, after) {
+  await endUndoOffer();
+  const before = {};
+  for (const k of LIST_KEYS) before[k] = JSON.parse(JSON.stringify(S[k] || []));
+  pendingFileDeletes = [];
+  try { await fn(); } finally { var files = pendingFileDeletes; pendingFileDeletes = null; }
+  await save();
+  render();
+  if (after) after();
+  const el = document.createElement('div');
+  el.className = 'toast undo';
+  el.setAttribute('role', 'status');
+  el.innerHTML = `<span>Deleted ${esc(what)}</span>`;
+  const btn = document.createElement('button');
+  btn.type = 'button'; btn.className = 'link'; btn.textContent = 'Undo';
+  btn.addEventListener('click', async () => {
+    if (!undoOffer || undoOffer.el !== el) return;
+    undoOffer.files = []; // nothing to remove: it is all coming back
+    for (const k of LIST_KEYS) {
+      const now = S[k] || (S[k] = []);
+      const byKey = new Map(now.map(x => [recKey(x), x]));
+      for (const old of before[k]) {
+        const cur = byKey.get(recKey(old));
+        if (!cur) now.push(old);
+        else if (JSON.stringify(cur) !== JSON.stringify(old)) Object.assign(cur, old); // e.g. a bill list that lost a photo
+      }
+    }
+    await endUndoOffer();
+    await save();
+    render();
+    if (after) after();
+    toast('Put back');
+  });
+  el.appendChild(btn);
+  document.querySelectorAll('.toast').forEach(t => t.remove());
+  document.body.appendChild(el);
+  undoOffer = { el, files, timer: setTimeout(endUndoOffer, 8000) };
+}
+const confirmDel = (what, fn, after) => undoable(what, fn, after);
 
 /* ---------------- option lists ---------------- */
 
@@ -1271,6 +1328,18 @@ const CATEGORY_WORDS = [
 const descKey = d => String(d || '').toLowerCase()
   .replace(/\(.*?\)/g, ' ').replace(/\b\d+(\.\d+)?\s*(kg|kgs|g|gm|gms|l|ltr|litre|liter|ml|pcs|pc|box|boxes|cans?|nos?|x)?\b/g, ' ')
   .replace(/[^a-z& ]+/g, ' ').replace(/\s+/g, ' ').trim();
+// the quantity written in a description: "Chapati (350)", "(50x13)", "8L Milk", "Chicken 18kg", "Chapati 50 pcs"
+function qtyIn(desc) {
+  const d = String(desc || '').toLowerCase();
+  let m = d.match(/\(\s*(\d+(?:\.\d+)?)\s*(?:x\s*\d+(?:\.\d+)?)?\s*\)/);
+  if (m && +m[1] > 0) return { qty: +m[1], unit: '' };
+  m = d.match(/(\d+(?:\.\d+)?)\s*(kg|kgs|l|ltr|litre|liter)\b/);
+  if (m && +m[1] > 0) return { qty: +m[1], unit: m[2].startsWith('k') ? 'kg' : 'l' };
+  m = d.match(/\b(\d+(?:\.\d+)?)\s*(?:pcs|pc|nos)?\b/);
+  if (m && +m[1] > 0) return { qty: +m[1], unit: '' };
+  return null;
+}
+
 function guessCategory(desc) {
   const d = String(desc || '').trim().toLowerCase(), k = descKey(desc), cats = S.settings.categories;
   if (!k) return '';
@@ -1304,8 +1373,35 @@ function bulkExpenseModal(preset = {}) {
       ${isApp ? '<label class="file-btn" title="Take a photo of the bill" data-icon="📷">📷<input data-f="files" type="file" accept="image/*" capture="environment" hidden></label>' : ''}
       <button type="button" class="row-del" aria-label="Remove row" title="Remove row" data-del>✕</button>
       <div class="bulk-extra">License / renewal valid till <input data-f="validTill" aria-label="Valid till" type="date" value="${esc(r.validTill || '')}"></div>
+      <div class="bulk-note" data-note aria-live="polite"></div>
     </div>`;
   };
+
+  /* how things are usually bought: the quantity written in the description ("Chapati (350)", "8L Milk",
+     "Chicken 18kg") and the amount give a rate per piece / litre / kg, learned from past entries */
+  const usual = {};
+  for (const e of recent) {
+    const key = descKey(e.desc), q = qtyIn(e.desc), a = num(e.amount);
+    if (!key) continue;
+    const u = usual[key] || (usual[key] = { key, n: 0, recent: 0, samples: [], unit: '', last: e, withQty: 0 });
+    u.n++;
+    if (e.date >= addDays(today(), -30)) u.recent++;
+    if (q && a > 0) { u.withQty++; if (u.samples.length < 15) u.samples.push({ qty: q.qty, rate: a / q.qty }); if (!u.unit) u.unit = q.unit; }
+  }
+  // the rate of past buys of a similar size: a big daily order of 400 chapatis is cheaper per piece
+  // than a top-up of 30, so each is compared with buys of its own size
+  const usualRate = (key, qty) => {
+    const u = usual[key];
+    if (!u || !u.samples.length) return null;
+    let near = u.samples.filter(s => s.qty >= qty / 2 && s.qty <= qty * 2);
+    if (!near.length) near = u.samples.slice().sort((a, b) => Math.abs(Math.log(a.qty / qty)) - Math.abs(Math.log(b.qty / qty))).slice(0, 3);
+    const r = near.map(s => s.rate).sort((a, b) => a - b);
+    return { rate: r[Math.floor(r.length / 2)], unit: u.unit };
+  };
+  const perUnit = (rate, unit) => `${money(rate)} ${unit === 'kg' ? 'per kg' : unit === 'l' ? 'per litre' : 'each'}`;
+  // one-tap buttons for what is bought most often lately
+  const frequent = Object.values(usual).filter(u => u.recent >= 2).sort((a, b) => b.recent - a.recent).slice(0, 10);
+  const nameOfUsual = u => u.last.desc.replace(/\(.*?\)/g, '').replace(/\b\d+(\.\d+)?\s*(kg|kgs|l|ltr|litre|liter|pcs|pc|box|boxes)?\b/gi, '').replace(/\s+/g, ' ').trim().replace(/^./, c => c.toUpperCase()) || u.key;
 
   const k = reg(async form => {
     const date = form.elements.date.value;
@@ -1323,6 +1419,11 @@ function bulkExpenseModal(preset = {}) {
     }
     if (bad) { alert('Enter the amount for the rows marked in red (or clear them).'); return; }
     if (!filled.length) { alert('Type at least one expense.'); return; }
+    // the same thing at the same amount on the same day is usually entered twice by mistake
+    const sameKey = x => (descKey(x.desc) || String(x.category).toLowerCase()) + '|' + num(x.amount);
+    const seen = new Set(S.expenses.filter(e => e.date === date).map(sameKey)), dupes = [];
+    for (const r of filled) { const key = sameKey(r.d); if (seen.has(key)) dupes.push(`${r.d.desc || r.d.category} ${money(r.d.amount)}`); seen.add(key); }
+    if (dupes.length && !confirm(`Already entered for ${fmtDate(date)}:\n\n${dupes.join('\n')}\n\nAdd ${dupes.length === 1 ? 'it' : 'them'} again?`)) return;
     for (const r of filled) await createExpense(r.d, r.files, r.paidNow);
     await save();
     closeModal();
@@ -1339,6 +1440,8 @@ function bulkExpenseModal(preset = {}) {
         <span style="flex:1"></span>
         <button type="button" class="ghost" data-copy>↺ Copy last day's expenses</button>
       </div>
+      ${frequent.length ? `<div class="quick-add"><span class="muted">Usual:</span>${frequent.map((u, i) =>
+        `<button type="button" class="chip" data-usual="${i}" title="${u.withQty ? 'Adds a row – type the quantity in the brackets' : 'Adds a row with the last amount'}">${esc(nameOfUsual(u))}</button>`).join('')}</div>` : ''}
       <div class="bulk-head"><span>Category</span><span>Description</span><span>Amount</span><span>Vendor</span><span>Paid now</span><span>Paid from</span><span>Bill</span><span></span></div>
       <div id="bulkRows">${rowHTML()}${rowHTML()}${rowHTML()}</div>
       <datalist id="descList">${descs}</datalist>
@@ -1375,6 +1478,56 @@ function bulkExpenseModal(preset = {}) {
     row.classList.toggle('license', field(row, 'category').value === LICENSE);
   };
   field(rowsEl.firstElementChild, 'desc').focus();
+
+  // amount = quantity × the usual rate; a short note when a typed amount is well off the usual rate
+  const note = (row, text, warn) => { const n = row.querySelector('[data-note]'); n.textContent = text || ''; n.classList.toggle('warn', !!warn); };
+  const rateCheck = row => {
+    const desc = field(row, 'desc').value, a = num(field(row, 'amount').value), q = qtyIn(desc), u = q && usualRate(descKey(desc), q.qty);
+    if (!q || !u || !a) { note(row, ''); return; }
+    const r = a / q.qty, diff = (r - u.rate) / u.rate;
+    note(row, Math.abs(diff) >= 0.15 ? `${perUnit(r, u.unit)} – usually ${perUnit(u.rate, u.unit)} (${diff > 0 ? '+' : ''}${Math.round(diff * 100)}%)` : '', true);
+  };
+  const smartAmount = row => {
+    const desc = field(row, 'desc').value, amt = field(row, 'amount'), q = qtyIn(desc), u = q && usualRate(descKey(desc), q.qty);
+    if (!q || !u) { if (amt.dataset.auto) note(row, ''); return; }
+    if (!amt.value || amt.dataset.auto) {
+      amt.value = Math.round(q.qty * u.rate);
+      amt.dataset.auto = '1';
+      updateTotal();
+      note(row, `${q.qty} × ${perUnit(u.rate, u.unit)} (usual rate) – change the amount if it was different`);
+    } else rateCheck(row);
+  };
+  rowsEl.addEventListener('input', e => {
+    const row = e.target.closest('.bulk-row'), f = e.target.dataset.f;
+    if (f === 'desc') smartAmount(row);
+    if (f === 'amount') { delete e.target.dataset.auto; rateCheck(row); }
+  });
+  // "Usual" buttons: add a row for something bought often, with its category and vendor
+  const quick = modal.querySelector('.quick-add');
+  if (quick) quick.addEventListener('click', e => {
+    const b = e.target.closest('[data-usual]');
+    if (!b) return;
+    const u = frequent[+b.dataset.usual], last = u.last;
+    const row = [...rowsEl.children].find(isEmpty) || addRow();
+    if (row === rowsEl.lastElementChild) addRow(); // keep an empty row at the end
+    if (last.vendorId && find(S.vendors, last.vendorId)) { field(row, 'vendorId').value = last.vendorId; onVendor(row); }
+    if (!row.dataset.catTouched) setCategory(row, last.category);
+    const d = field(row, 'desc');
+    if (u.withQty) {
+      // the quantity changes every time: the cursor waits inside the brackets
+      d.value = nameOfUsual(u) + ' ()';
+      d.focus();
+      d.setSelectionRange(d.value.length - 1, d.value.length - 1);
+    } else {
+      d.value = nameOfUsual(u);
+      const a = field(row, 'amount');
+      a.value = num(last.amount);
+      a.dataset.auto = '1';
+      updateTotal();
+      a.focus(); a.select();
+    }
+    modal.dataset.dirty = '1';
+  });
 
   rowsEl.addEventListener('input', e => {
     const row = e.target.closest('.bulk-row');
@@ -1593,7 +1746,7 @@ function vendorLedger(vid) {
   let bal = 0;
   const rows = entries.map(x => {
     bal += x.kind === 'bill' ? x.amount : -x.amount;
-    const del = x.kind === 'pay' ? `<button class="link del" aria-label="Delete" title="Delete" ${act(() => { if (confirm('Delete this payment?')) { S.vendorPayments = S.vendorPayments.filter(p => p !== x.ref); save().then(() => { render(); reopen(); }); } })}>✕</button>` : '';
+    const del = x.kind === 'pay' ? `<button class="link del" aria-label="Delete" title="Delete" ${act(() => undoable('payment of ' + money(x.amount), () => { S.vendorPayments = S.vendorPayments.filter(p => p !== x.ref); }, reopen))}>✕</button>` : '';
     return `<tr><td>${fmtDate(x.date)}</td><td>${x.kind === 'bill' ? '<span class="pill bad">Bill</span>' : '<span class="pill good">Payment</span>'} ${esc(x.text)}${x.kind === 'bill' ? fileChips(x.ref.files) : ''}</td>
       <td class="num">${x.kind === 'bill' ? money(x.amount) : ''}</td><td class="num">${x.kind === 'pay' ? money(x.amount) : ''}</td>
       <td class="num"><b>${money(bal)}</b></td><td class="num">${del}</td></tr>`;
@@ -1895,7 +2048,7 @@ function customerLedger(cid) {
       <td class="num">${t.type === 'credit' ? money(t.amount) : ''}</td><td class="num">${t.type === 'payment' ? money(t.amount) : ''}</td>
       <td class="num"><b>${money(bal)}</b></td>
       <td class="num" style="white-space:nowrap"><button class="link" ${act(() => creditTxModal(cid, t.type, reopen, t))}>Edit</button>
-        <button class="link del" aria-label="Delete" title="Delete" ${act(() => { if (confirm('Delete this entry?')) { S.creditTx = S.creditTx.filter(x => x !== t); save().then(() => { render(); reopen(); }); } })}>✕</button></td></tr>`;
+        <button class="link del" aria-label="Delete" title="Delete" ${act(() => undoable('entry of ' + money(t.amount), () => { S.creditTx = S.creditTx.filter(x => x !== t); }, reopen))}>✕</button></td></tr>`;
   }).reverse();
   const b = customerBalance(cid);
   openModal(`<h3>${esc(c.name)} ${c.phone ? `<span class="muted" style="font-weight:400">· ${esc(c.phone)}</span>` : ''}</h3>
@@ -2055,8 +2208,8 @@ async function viewFile(id) {
       ${linked ? ` · linked to expense of ${money(linked.amount)}` : ''}</p>
     ${body}
     <div class="actions"><button class="danger" ${act(() => {
-      if (!confirm('Delete this file?')) return;
-      deleteFiles([id]).then(save).then(() => { closeModal(); toast('Deleted'); render(); });
+      closeModal();
+      undoable('file "' + (f.title || f.name) + '"', () => deleteFiles([id]));
     })}>Delete file</button>
     <button class="ghost" ${act(async () => saveFile(await getBlob(id), f.name))}>${isApp ? 'Open / share' : 'Download'}</button>
     <button ${act(closeModal)}>Close</button></div>`, true);
