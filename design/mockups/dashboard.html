@@ -1,0 +1,46 @@
+<!doctype html><html lang="en" data-theme="light"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Mockup – Dashboard</title><link rel="stylesheet" href="../../styles.css"><link rel="stylesheet" href="new-ui.css"></head><body><div class="layout">
+<aside class="sidebar" id="sidebar"><div class="brand-row"><svg class="brand-logo" viewBox="0 0 256 256" aria-hidden="true"><rect width="256" height="256" rx="58" fill="#c2410c"/><path fill="#fff" transform="translate(32 32) scale(.75)" d="M54 90A18 18 0 0 1 90 90V98A18 18 0 0 1 54 98ZM110 66A18 18 0 0 1 146 66V98A18 18 0 0 1 110 98ZM166 42A18 18 0 0 1 202 42V98A18 18 0 0 1 166 98ZM30 134H226A98 98 0 0 1 30 134Z"/></svg><div><div class="brand">N.D. Patil Canteen</div><div class="brand-sub">Accounts &amp; Expenses</div></div></div>
+<nav class="nav"><a href="#" class="active">Dashboard</a><a href="#">Daily Entry</a><a href="#">Expenses</a><a href="#">Vendors</a><a href="#">Helpers</a><a href="#">Owners</a><a href="#">Customer Credit</a><a href="#">Item Sales</a><a href="#">Bills &amp; Documents</a><a href="#">Profit Reports</a><a href="#">Settings &amp; Backup</a></nav></aside>
+<main class="main"><div class="topbar"><button class="ghost menu-btn" aria-label="Open menu">☰</button><h1>Dashboard</h1></div>
+<div class="card">
+  <div class="hero">
+    <div class="hero-main">
+      <div class="eyebrow">Today · Wednesday, 11 November 2026 · net profit so far</div>
+      <div class="hero-num good">₹10,530</div>
+      <div class="hero-sub">Business <b>₹15,210</b> − costs <b>₹4,680</b> · 69% margin</div>
+      <div class="flow">
+        <div class="flow-bar"><i style="width:55.6%;background:#0f766e"></i><i style="width:40.2%;background:#14b8a6"></i><i style="width:4.2%;background:#f59e0b"></i></div>
+        <div class="flow-legend"><span style="--c:#0f766e">Cash ₹8,450</span><span style="--c:#14b8a6">Online ₹6,120</span><span style="--c:#f59e0b">Credit ₹640</span></div>
+        <div class="flow-bar" style="margin-top:10px;width:30.8%"><i style="width:93.6%;background:#c2410c"></i><i style="width:6.4%;background:#fdba74"></i></div>
+        <div class="flow-legend"><span style="--c:#c2410c">Expenses ₹4,380</span><span style="--c:#fdba74">Helper bonus ₹300</span></div>
+      </div>
+    </div>
+    <div class="quick">
+      <button><b>Today's entry</b><small>Sales ✓ · 4 expenses</small></button>
+      <button class="ghost"><b>+ Add expense</b><small>Ctrl+E</small></button>
+      <button class="ghost"><b>Credit payment</b><small>5 customers owe</small></button>
+      <button class="ghost"><b>Pay a vendor</b><small>3 bills pending</small></button>
+    </div>
+  </div>
+</div>
+<div class="grid g2">
+  <div class="card"><h2>Needs attention</h2>
+    <ul class="todo">
+      <li><span class="dot" style="--c:var(--bad)"></span><span class="what">FSSAI license expires in 17 days<small>Valid till 28 Nov 2026</small></span><a class="go" href="#">Renew →</a></li>
+      <li><span class="dot" style="--c:var(--bad)"></span><span class="what">Pending to vendors<small>Ramesh Dairy, Shree Gas, Patel Veg</small></span><span class="amt neg">₹12,800</span><a class="go" href="#">Pay →</a></li>
+      <li><span class="dot" style="--c:var(--warn)"></span><span class="what">Customer credit to collect<small>5 customers · oldest 23 days</small></span><span class="amt">₹3,460</span><a class="go" href="#">Remind →</a></li>
+      <li><span class="dot" style="--c:var(--warn)"></span><span class="what">Helper salary due this month<small>3 helpers</small></span><span class="amt">₹18,000</span><a class="go" href="#">View →</a></li>
+      <li><span class="dot" style="--c:var(--warn)"></span><span class="what">No backup for 9 days</span><a class="go" href="#">Back up →</a></li>
+    </ul></div>
+  <div>
+    <div class="card"><h2>This week · from 9 Nov<span class="spacer"></span><button class="sm ghost">Details</button></h2>
+      <div class="period"><div><div class="label">Business</div><div class="value">₹41,870</div><div class="sub">3 days</div></div><div><div class="label">All costs</div><div class="value">₹13,240</div><div class="sub">incl. salaries ₹0</div></div><div><div class="label">Net profit</div><div class="value good">₹28,630</div><div class="sub">Owners took ₹9,000</div></div></div></div>
+    <div class="card"><h2>This month · November 2026<span class="spacer"></span><button class="sm ghost">Details</button></h2>
+      <div class="period"><div><div class="label">Business</div><div class="value">₹1,58,420</div><div class="sub">11 days</div></div><div><div class="label">All costs</div><div class="value">₹61,950</div><div class="sub">incl. salaries ₹12,000</div></div><div><div class="label">Net profit</div><div class="value good">₹96,470</div><div class="sub">Owners took ₹33,000</div></div></div></div>
+  </div>
+</div>
+<div class="card"><h2>Net profit – last 30 days<span class="spacer"></span><a href="#" class="btn ghost sm">Full reports</a></h2>
+<svg class="chart" viewBox="0 0 900 200" role="img" aria-label="Net profit chart"><g class="ax-grid"><line x1="40" x2="890" y1="20" y2="20"/><line x1="40" x2="890" y1="70" y2="70"/><line x1="40" x2="890" y1="120" y2="120"/></g><line class="ax-zero" x1="40" x2="890" y1="170" y2="170"/><g class="ax-text" font-size="11"><text x="34" y="24" text-anchor="end">₹12k</text><text x="34" y="74" text-anchor="end">₹8k</text><text x="34" y="124" text-anchor="end">₹4k</text><text x="34" y="174" text-anchor="end">0</text><text x="60" y="192">13 Oct</text><text x="330" y="192">22 Oct</text><text x="600" y="192">1 Nov</text><text x="870" y="192" text-anchor="end">11 Nov</text></g>
+<polyline fill="none" stroke="#15803d" stroke-width="2.5" stroke-linejoin="round" points="60,92 89,80 118,101 147,75 176,88 205,69 234,120 263,84 292,78 321,96 350,70 379,82 408,64 437,90 466,74 495,99 524,60 553,77 582,66 611,140 640,72 669,58 698,81 727,63 756,70 785,55 814,74 843,62 870,38"/></svg>
+<div class="legend"><span><i style="background:#15803d"></i>Net profit</span><span><i style="background:#b91c1c"></i>Loss</span></div></div>
+</main></div></body></html>

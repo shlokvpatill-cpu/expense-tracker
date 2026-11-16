@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256"><title>Tiffin rows</title>
+<path d="M108 62V44A20 20 0 0 1 148 44V62H136V44A8 8 0 0 0 120 44V62Z"/>
+<path d="M42 206V78A16 16 0 0 1 58 62H198A16 16 0 0 1 214 78V206H202V78A4 4 0 0 0 198 74H58A4 4 0 0 0 54 78V206Z"/>
+<rect x="62" y="86" width="132" height="40" rx="20"/>
+<rect x="62" y="134" width="132" height="40" rx="20"/>
+<rect x="62" y="182" width="132" height="40" rx="20"/>
+</svg>

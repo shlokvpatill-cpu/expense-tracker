@@ -1,0 +1,52 @@
+<!doctype html><html lang="en" data-theme="light"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Mockup – Daily Entry</title><link rel="stylesheet" href="../../styles.css"><link rel="stylesheet" href="new-ui.css"></head><body><div class="layout">
+<aside class="sidebar" id="sidebar"><div class="brand-row"><svg class="brand-logo" viewBox="0 0 256 256" aria-hidden="true"><rect width="256" height="256" rx="58" fill="#c2410c"/><path fill="#fff" transform="translate(32 32) scale(.75)" d="M54 90A18 18 0 0 1 90 90V98A18 18 0 0 1 54 98ZM110 66A18 18 0 0 1 146 66V98A18 18 0 0 1 110 98ZM166 42A18 18 0 0 1 202 42V98A18 18 0 0 1 166 98ZM30 134H226A98 98 0 0 1 30 134Z"/></svg><div><div class="brand">N.D. Patil Canteen</div><div class="brand-sub">Accounts &amp; Expenses</div></div></div>
+<nav class="nav"><a href="#">Dashboard</a><a href="#" class="active">Daily Entry</a><a href="#">Expenses</a><a href="#">Vendors</a><a href="#">Helpers</a><a href="#">Owners</a><a href="#">Customer Credit</a><a href="#">Item Sales</a><a href="#">Bills &amp; Documents</a><a href="#">Profit Reports</a><a href="#">Settings &amp; Backup</a></nav></aside>
+<main class="main has-daybar"><div class="topbar"><button class="ghost menu-btn" aria-label="Open menu">☰</button><h1>Daily Entry</h1><div id="pageTools" class="row"><button class="ghost">‹ Prev</button><input type="date" aria-label="Day" value="2026-11-11" style="width:160px"><button class="ghost">Next ›</button></div></div>
+<nav class="steps" aria-label="Sections">
+  <a href="#" class="done"><span class="n">✓</span>Sales <small>₹14,570</small></a>
+  <a href="#" class="done"><span class="n">✓</span>Items <small>212</small></a>
+  <a href="#" class="done"><span class="n">✓</span>Expenses <small>4</small></a>
+  <a href="#" class="now"><span class="n">4</span>Helper bonus</a>
+  <a href="#"><span class="n">5</span>Owners took</a>
+  <a href="#"><span class="n">6</span>Credit</a>
+</nav>
+<div class="grid g2">
+  <div>
+    <div class="card"><h2><span class="n done">✓</span>Sales of the day</h2>
+      <form class="row"><div class="field"><label>Cash received from customers</label><input type="number" value="8450"></div><div class="field"><label>Online / UPI received</label><input type="number" value="6120"></div><div class="field wide"><label>Note</label><input value="Wedding order 40 thalis"></div><button type="button">Update sales</button></form></div>
+    <div class="card"><h2><span class="n done">✓</span>Items sold</h2>
+      <div class="item-grid">
+        <label class="item-cell has"><span class="nm">Veg Thali<small>₹90</small></span><input value="64"></label>
+        <label class="item-cell has"><span class="nm">Chapati<small>₹10</small></span><input value="120"></label>
+        <label class="item-cell has"><span class="nm">Tea<small>₹12</small></span><input value="28"></label>
+        <label class="item-cell"><span class="nm">Poha<small>₹30</small></span><input placeholder="0"></label>
+      </div></div>
+    <div class="card"><h2><span class="n done">✓</span>Expenses<span class="spacer"></span><button class="sm">+ Add expense / bill</button></h2>
+      <div class="table-wrap"><table><thead><tr><th>Category</th><th>Details</th><th class="num">Amount</th><th></th></tr></thead><tbody>
+      <tr><td>Groceries<br><span class="pill accent">Patel Veg</span></td><td>Vegetables</td><td class="num">₹1,850</td><td class="num"><button class="link">Edit</button></td></tr>
+      <tr><td>Milk &amp; Dairy<br><span class="pill accent">Ramesh Dairy</span></td><td>20 L milk</td><td class="num">₹1,280</td><td class="num"><button class="link">Edit</button></td></tr>
+      <tr><td>Gas</td><td>Cylinder</td><td class="num">₹950</td><td class="num"><button class="link">Edit</button></td></tr>
+      <tr><td>Other</td><td>Disposable plates</td><td class="num">₹300</td><td class="num"><button class="link">Edit</button></td></tr>
+      <tr class="total"><td colspan="2">Total</td><td class="num">₹4,380</td><td></td></tr></tbody></table></div></div>
+  </div>
+  <div class="summary-col">
+    <div class="card summary"><div class="summary-head"><span><span class="muted" style="font-size:12px">Net profit · 11 Nov</span><br><span class="hero-num good">₹10,530</span></span><button class="sm ghost">⧉ Copy for WhatsApp</button></div>
+      <div class="split"><span>Cash sales</span><b>₹8,450</b></div>
+      <div class="split"><span>Online sales</span><b>₹6,120</b></div>
+      <div class="split"><span>Credit sales (udhaar)</span><b>₹640</b></div>
+      <div class="split"><span><b>Total business</b></span><b>₹15,210</b></div>
+      <div class="split"><span>− Expenses</span><span>₹4,380</span></div>
+      <div class="split"><span>− Helper bonuses</span><span>₹300</span></div>
+      <div class="split"><span>− Taken by owners</span><span>₹3,000</span></div>
+      <div class="split"><span>Left in business</span><b class="pos">₹7,530</b></div></div>
+    <div class="card now"><h2><span class="n" style="background:var(--accent);color:#fff">4</span>Helper daily bonus</h2>
+      <form class="row"><div class="field"><label>Helper</label><select><option>Sunita</option></select></div><div class="field small"><label>Bonus (each)</label><input value="100"></div><div class="field"><label>Note</label><input></div><button type="button">Add bonus</button></form>
+      <div class="table-wrap" style="margin-top:10px"><table><tbody><tr><td>Raju</td><td class="muted">Extra shift</td><td class="num">₹200</td></tr></tbody></table></div></div>
+    <div class="card"><h2><span class="n">5</span>Amount taken by owners</h2>
+      <form class="row"><div class="field"><label>Owner</label><select><option>Nitin</option></select></div><div class="field small"><label>Amount taken</label><input value="1500"></div><div class="field"><label>Note</label><input></div><button type="button">Add</button></form></div>
+    <div class="card"><h2><span class="n">6</span>Customer credit</h2>
+      <form class="row"><div class="field"><label>Customer</label><select><option>Suresh</option></select></div><div class="field small"><label>Type</label><select><option>Took on credit</option></select></div><div class="field small"><label>Amount</label><input></div><button type="button">Add</button></form></div>
+  </div>
+</div>
+<div class="daybar"><span class="what"><small>Net profit today · tap for summary</small><b class="pos">₹10,530</b></span><button class="ghost sm">⧉ Copy</button></div>
+</main></div></body></html>

@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#1f2937">
+  <title>N.D. Patil Canteen – Accounts</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="layout">
+    <aside class="sidebar" id="sidebar">
+      <div class="brand-row">
+        <svg class="brand-logo" viewBox="0 0 256 256" aria-hidden="true"><rect width="256" height="256" rx="58" fill="#c2410c"/><path fill="#fff" transform="translate(32 32) scale(.75)" d="M54 90A18 18 0 0 1 90 90V98A18 18 0 0 1 54 98ZM110 66A18 18 0 0 1 146 66V98A18 18 0 0 1 110 98ZM166 42A18 18 0 0 1 202 42V98A18 18 0 0 1 166 98ZM30 134H226A98 98 0 0 1 30 134Z"/></svg>
+        <div>
+          <div class="brand" id="brandName">N.D. Patil Canteen</div>
+          <div class="brand-sub">Accounts &amp; Expenses</div>
+        </div>
+      </div>
+      <nav class="nav" id="nav" aria-label="Pages">
+        <a href="#dashboard">Dashboard</a>
+        <a href="#daily">Daily Entry</a>
+        <a href="#expenses">Expenses</a>
+        <a href="#vendors">Vendors</a>
+        <a href="#helpers">Helpers</a>
+        <a href="#owners">Owners</a>
+        <a href="#credit">Customer Credit</a>
+        <a href="#items">Item Sales</a>
+        <a href="#bills">Bills &amp; Documents</a>
+        <a href="#reports">Profit Reports</a>
+        <a href="#settings">Settings &amp; Backup</a>
+      </nav>
+    </aside>
+    <main class="main">
+      <div class="topbar">
+        <button class="ghost menu-btn" id="menuBtn" aria-label="Open menu" aria-controls="sidebar">☰</button>
+        <h1 id="pageTitle">Dashboard</h1>
+        <button class="ghost sm sync-btn" id="syncBtn" hidden></button>
+        <div id="pageTools" class="row"></div>
+      </div>
+      <div id="view"></div>
+    </main>
+  </div>
+  <div id="modalRoot"></div>
+  <script src="capacitor.js"></script>
+  <script src="sync.js"></script>
+  <script src="excel.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

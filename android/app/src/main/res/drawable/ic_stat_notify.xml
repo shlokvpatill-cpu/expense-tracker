@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- status-bar icon for reminders: the logo (bowl with rising bars) in plain white (Android tints it).
+     Same shape as branding/final/logo-symbol-small.svg, scaled from 256 to 24. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp" android:height="24dp"
+    android:viewportWidth="24" android:viewportHeight="24">
+    <group android:scaleX="0.09375" android:scaleY="0.09375">
+        <path android:fillColor="#FFFFFFFF"
+            android:pathData="M54,90A18,18 0,0 1,90 90V98A18,18 0,0 1,54 98ZM110,66A18,18 0,0 1,146 66V98A18,18 0,0 1,110 98ZM166,42A18,18 0,0 1,202 42V98A18,18 0,0 1,166 98ZM30,134H226A98,98 0,0 1,30 134Z" />
+    </group>
+</vector>

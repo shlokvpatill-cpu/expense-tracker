@@ -1,0 +1,28 @@
+{
+  "name": "ndp-canteen",
+  "productName": "N.D. Patil Canteen",
+  "version": "1.4.0",
+  "description": "Accounts and expenses for N.D. Patil Canteen",
+  "main": "main.js",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "build": "node scripts/build-desktop.js",
+    "android": "node scripts/build-android.js",
+    "test": "playwright test"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^8.6.0",
+    "@electron/packager": "^20.3.0",
+    "@playwright/test": "^1.56.1",
+    "electron": "^45.2.1"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.6.0",
+    "@capacitor/app": "^8.1.2",
+    "@capacitor/core": "^8.6.0",
+    "@capacitor/filesystem": "^8.1.5",
+    "@capacitor/local-notifications": "^8.3.1",
+    "@capacitor/share": "^8.0.3"
+  }
+}

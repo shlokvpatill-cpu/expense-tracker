@@ -1,0 +1,20 @@
+node_modules/
+dist/
+# App signing key and passwords - never commit these
+signing/
+*.jks
+*.keystore
+keystore.properties
+# Android build output
+android/build/
+android/app/build/
+android/.gradle/
+android/.kotlin/
+android/local.properties
+# Test output
+test-results/
+playwright-report/
+# Personal files kept in this folder, not part of the app
+TV-backup-*/
+TV-wallpapers/
+backup-*.zip

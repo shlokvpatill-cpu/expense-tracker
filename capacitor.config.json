@@ -1,0 +1,14 @@
+{
+  "appId": "com.ndpatil.canteen",
+  "appName": "N.D. Patil Canteen",
+  "webDir": "www",
+  "android": {
+    "allowMixedContent": false
+  },
+  "plugins": {
+    "LocalNotifications": {
+      "smallIcon": "ic_stat_notify",
+      "iconColor": "#c2410c"
+    }
+  }
+}

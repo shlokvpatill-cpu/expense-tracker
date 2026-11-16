@@ -1,0 +1,79 @@
+/* New components proposed for Dashboard and Daily Entry (mockup) */
+
+/* ---- Dashboard: today hero ---- */
+.hero { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 20px; align-items: stretch; }
+.hero-main .eyebrow { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+.hero-num { font-size: 32px; font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.hero-num.good { color: var(--good); }
+.hero-num.bad { color: var(--bad); }
+.hero-sub { color: var(--muted); font-size: 13px; margin-top: 6px; font-variant-numeric: tabular-nums; }
+.hero-sub b { color: var(--ink); font-weight: 600; }
+.flow { margin-top: 14px; }
+.flow-bar { display: flex; height: 10px; border-radius: 99px; overflow: hidden; background: var(--chip); }
+.flow-bar i { display: block; height: 100%; }
+.flow-legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; color: var(--muted); margin-top: 8px; font-variant-numeric: tabular-nums; }
+.flow-legend span::before { content: ''; display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 5px; background: var(--c); }
+.quick { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; align-content: start; }
+.quick button { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 10px 12px; text-align: left; white-space: normal; border-radius: 10px; }
+.quick button small { font-size: 12px; opacity: .8; font-weight: 400; }
+.quick button.ghost small { color: var(--muted); opacity: 1; }
+.quick button b { font-weight: 600; }
+
+/* ---- Dashboard: needs attention list ---- */
+.todo { list-style: none; margin: 0; padding: 0; }
+.todo li { display: flex; align-items: center; gap: 12px; padding: 10px 2px; border-bottom: 1px solid var(--line); }
+.todo li:last-child { border-bottom: none; }
+.todo .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; background: var(--c, var(--muted)); }
+.todo .what { flex: 1; min-width: 0; }
+.todo .what small { display: block; color: var(--muted); font-size: 12px; }
+.todo .amt { font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.todo a.go { font-size: 13px; white-space: nowrap; text-decoration: none; }
+
+/* compact period tiles */
+.period { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; }
+.period > div { padding: 0 12px; border-left: 1px solid var(--line); }
+.period > div:first-child { border-left: none; padding-left: 0; }
+.period .label { font-size: 12px; color: var(--muted); }
+.period .value { font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums; margin-top: 2px; }
+.period .value.good { color: var(--good); }
+.period .sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+/* ---- Daily Entry: step strip ---- */
+.steps { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 16px; }
+.steps a { display: inline-flex; align-items: center; gap: 7px; padding: 6px 12px 6px 6px; border-radius: 99px; background: var(--panel); border: 1px solid var(--line); color: var(--ink); text-decoration: none; font-size: 13px; }
+.steps a .n { width: 22px; height: 22px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; background: var(--chip); color: var(--muted); }
+.steps a.done .n { background: var(--good); color: #fff; }
+.steps a.done { border-color: var(--good-soft); }
+.steps a.now { border-color: var(--accent); background: var(--accent-soft); }
+.steps a.now .n { background: var(--accent); color: #fff; }
+.steps a small { color: var(--muted); font-variant-numeric: tabular-nums; }
+
+/* numbered card titles */
+.card h2 .n { width: 22px; height: 22px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; background: var(--chip); color: var(--muted); flex-shrink: 0; }
+.card h2 .n.done { background: var(--good); color: #fff; }
+.card.now { border-color: var(--accent-line); box-shadow: inset 3px 0 0 var(--accent); }
+
+/* day summary: sticky on PC */
+.summary-col { position: sticky; top: 16px; }
+.summary-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; padding-bottom: 10px; margin-bottom: 4px; border-bottom: 1px solid var(--line); }
+.summary-head .hero-num { font-size: 28px; }
+
+/* phone: day bar pinned to the bottom */
+.daybar { display: none; }
+@media (max-width: 760px) {
+  .hero { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+  .hero-num { font-size: 28px; }
+  .period > div { padding: 0 8px; }
+  .period .value { font-size: 15px; }
+  .steps { flex-wrap: nowrap; overflow-x: auto; margin: 0 -12px 12px; padding: 0 12px; scrollbar-width: none; }
+  .steps a { flex-shrink: 0; }
+  .summary-col .card.summary { display: none; }
+  .daybar {
+    display: flex; position: fixed; left: 0; right: 0; bottom: 0; z-index: 35; align-items: center; gap: 12px;
+    background: var(--panel); border-top: 1px solid var(--line); padding: 10px 14px calc(10px + var(--safe-bottom));
+  }
+  .daybar .what { flex: 1; }
+  .daybar .what small { display: block; font-size: 12px; color: var(--muted); }
+  .daybar .what b { font-size: 20px; font-variant-numeric: tabular-nums; }
+  .main.has-daybar { padding-bottom: 90px; }
+}
