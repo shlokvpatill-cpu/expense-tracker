@@ -386,6 +386,12 @@ kbd {
 .item-cell .nm small { display: block; color: var(--muted); }
 .item-cell input { width: 64px; flex: 0 0 64px; text-align: right; padding: 5px 6px; }
 .item-cell.has { border-color: var(--accent-line); background: var(--accent-soft); }
+/* items whose price changes daily (fish): quantity and today's price side by side */
+.item-cell.daily { grid-column: span 2; border-style: dashed; border-color: var(--warn-line); }
+.item-cell.daily.has { border-style: solid; border-color: var(--accent-line); }
+.item-cell .rate { display: inline-flex; align-items: center; gap: 3px; color: var(--muted); }
+.item-cell .rate input { width: 80px; flex: 0 0 80px; }
+@media (max-width: 760px) { .item-cell.daily { grid-column: auto; } }
 
 .split { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px dashed var(--line); }
 .split:last-child { border-bottom: none; }

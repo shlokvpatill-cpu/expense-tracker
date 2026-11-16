@@ -359,6 +359,8 @@ function fieldHTML(f) {
   // each box gets an id so its label is linked to it (tapping the label focuses the box, screen readers read it)
   const id = 'fld' + (++fieldN);
   const req = (f.required ? 'required' : '') + ` id="${id}"`;
+  if (f.type === 'checkbox') return `<div class="field ${f.cls || ''}"><label class="check"><input type="checkbox" name="${f.name}" id="${id}" ${v ? 'checked' : ''}> ${esc(f.label)}</label>
+    ${f.hint ? `<small class="muted">${esc(f.hint)}</small>` : ''}</div>`;
   let input;
   if (f.type === 'select') {
     input = `<select name="${f.name}" ${req}>${f.options.map(o =>
@@ -386,7 +388,8 @@ function readForm(form, fields) {
   for (const f of fields) {
     const el = form.elements[f.name];
     if (!el) continue;
-    if (f.type === 'file') o[f.name] = (el.files ? [el] : [...el]).flatMap(x => [...x.files]); // phone has a camera box too
+    if (f.type === 'checkbox') o[f.name] = el.checked;
+    else if (f.type === 'file') o[f.name] = (el.files ? [el] : [...el]).flatMap(x => [...x.files]); // phone has a camera box too
     else if (f.type === 'money' || f.type === 'number') o[f.name] = f.raw ? el.value.trim() : num(el.value);
     else o[f.name] = el.value.trim();
   }
@@ -1027,7 +1030,10 @@ function pageDaily() {
     S.itemSales = S.itemSales.filter(x => x.date !== date);
     for (const it of S.items) {
       const q = num(form.elements['q_' + it.id].value);
-      if (q > 0) S.itemSales.push({ id: uid(), date, itemId: it.id, name: it.name, qty: q, rate: num(it.price) });
+      // items whose price changes daily are saved at the price typed for today
+      const p = form.elements['p_' + it.id];
+      const rate = p && num(p.value) > 0 ? num(p.value) : itemRateOn(it, date).rate;
+      if (q > 0) S.itemSales.push({ id: uid(), date, itemId: it.id, name: it.name, qty: q, rate });
     }
     await save(); toast('Item sales saved');
     resumeAfterRender = { key: 'items' };
@@ -1036,9 +1042,19 @@ function pageDaily() {
   formFlow.items = { resume: () => goTo('form[data-form=bonus] [name=amount]') };
   const itemsCard = S.items.length ? `
     <form data-submit="${itemsK}" data-form="items">
-      <div class="item-grid">${S.items.map((it, i) => `<label class="item-cell ${qtyOf(it.id) ? 'has' : ''}">
-        <span class="nm">${esc(it.name)}<small>${money(it.price)}</small></span>
-        <input type="number" min="0" step="any" inputmode="decimal" name="q_${it.id}" value="${qtyOf(it.id)}" placeholder="0" ${i < S.items.length - 1 ? 'data-enter-next' : ''}></label>`).join('')}</div>
+      <div class="item-grid">${S.items.map((it, i) => {
+        const last = i === S.items.length - 1;
+        if (!it.dailyPrice) return `<label class="item-cell ${qtyOf(it.id) ? 'has' : ''}">
+        <span class="nm">${esc(it.name)}<small>${money(itemRateOn(it, date).rate)}</small></span>
+        <input type="number" min="0" step="any" inputmode="decimal" name="q_${it.id}" value="${qtyOf(it.id)}" placeholder="0" ${last ? '' : 'data-enter-next'}></label>`;
+        // price changes daily: ask today's price, filled in with the last one used
+        const r = itemRateOn(it, date), saved = r.from === date;
+        return `<div class="item-cell daily ${qtyOf(it.id) ? 'has' : ''}">
+        <span class="nm">${esc(it.name)}<small>${saved ? "today's price" : r.from ? `last ${fmtDate(r.from)}` : 'menu price'} · changes daily</small></span>
+        <input type="number" min="0" step="any" inputmode="decimal" name="q_${it.id}" value="${qtyOf(it.id)}" placeholder="Qty" aria-label="${esc(it.name)} quantity" data-enter-next>
+        <span class="rate"><span aria-hidden="true">₹</span><input type="number" min="0" step="any" inputmode="decimal" name="p_${it.id}" value="${r.rate || ''}" placeholder="Price"
+          aria-label="${esc(it.name)} price today" title="Price today" ${last ? '' : 'data-enter-next'}></span></div>`;
+      }).join('')}</div>
       <div class="row" style="margin-top:10px;justify-content:space-between">
         <span class="muted">Items value: <b>${money(itemsTotal)}</b>${f.cash + f.online > 0 ? ` · Cash + Online: <b>${money(f.cash + f.online)}</b>` : ''}</span>
         <button type="submit">Save item quantities</button></div></form>`
@@ -1935,10 +1951,21 @@ function itemModal(it) {
     title: it ? 'Edit menu item' : 'Add menu item',
     fields: [
       { name: 'name', label: 'Item name', value: it && it.name, required: true },
-      { name: 'price', label: 'Selling price', type: 'money', value: it && it.price, required: true }
+      { name: 'price', label: 'Selling price', type: 'money', value: it && it.price, required: true },
+      { name: 'dailyPrice', type: 'checkbox', value: it && it.dailyPrice, cls: 'wide',
+        label: 'Price changes every day (e.g. fish, at market price)',
+        hint: "Daily Entry will ask for today's price, filled in with the last price you used. The selling price above is used until then." }
     ],
     onSave: async d => { if (it) Object.assign(it, d); else S.items.push({ id: uid(), ...d }); await save(); }
   });
+}
+
+/* the price an item sells at on a day: what was saved for that day, else the last price used before it
+   (for items whose price changes daily), else the menu price */
+function itemRateOn(it, date) {
+  const past = S.itemSales.filter(x => x.itemId === it.id && x.date <= date && num(x.rate) > 0).sort(byDateDesc)[0];
+  if (past && (past.date === date || it.dailyPrice)) return { rate: num(past.rate), from: past.date };
+  return { rate: num(it.price), from: null };
 }
 
 function itemSummary(list) {
@@ -1973,7 +2000,8 @@ function pageItems() {
     <td class="num">${(r.qty / Math.max(1, r.days.size)).toFixed(1)}</td><td class="num">${money(r.amount)}</td>
     <td class="num muted">${monTotal ? Math.round(r.amount / monTotal * 100) : 0}%</td></tr>`);
 
-  const menuRows = S.items.map(it => `<tr><td>${esc(it.name)}</td><td class="num">${money(it.price)}</td>
+  const menuRows = S.items.map(it => `<tr><td>${esc(it.name)}${it.dailyPrice ? ' <span class="pill warn">price changes daily</span>' : ''}</td>
+    <td class="num">${it.dailyPrice ? (() => { const r = itemRateOn(it, today()); return `${money(r.rate)}${r.from ? `<br><small class="muted">last used ${fmtDate(r.from)}</small>` : ''}`; })() : money(it.price)}</td>
     <td class="num"><button class="link" ${act(() => itemModal(it))}>Edit</button>
     <button class="link del" aria-label="Delete" title="Delete" ${act(() => confirmDel('menu item ' + it.name, () => { S.items = S.items.filter(x => x !== it); }))}>✕</button></td></tr>`);
 

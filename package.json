@@ -1,7 +1,7 @@
 {
   "name": "ndp-canteen",
   "productName": "N.D. Patil Canteen",
-  "version": "1.5.0",
+  "version": "1.5.1",
   "description": "Accounts and expenses for N.D. Patil Canteen",
   "main": "main.js",
   "private": true,

@@ -190,6 +190,31 @@ test('adding expenses: category follows the description, Enter goes description 
   await expect(rows.nth(2).locator('[data-f=category]')).toHaveValue('Cold Drinks & Beverages');
 });
 
+test('an item whose price changes daily asks for today\'s price', async ({ page }) => {
+  await openPage(page, 'items');
+  await page.getByRole('button', { name: '+ Add item' }).click();
+  const add = page.getByRole('dialog', { name: 'Add menu item' });
+  await add.getByLabel('Item name').fill('Surmai Fry');
+  await add.getByLabel('Selling price').fill('300');
+  await add.getByLabel(/Price changes every day/).check();
+  await add.getByRole('button', { name: 'Save' }).click();
+  await expect(page.locator('#view table').getByText('price changes daily')).toBeVisible();
+
+  // today: sold 4 at ₹350
+  await openPage(page, 'daily');
+  const price = page.getByLabel('Surmai Fry price today');
+  await expect(price).toHaveValue('300');
+  await page.getByLabel('Surmai Fry quantity').fill('4');
+  await price.fill('350');
+  await page.getByRole('button', { name: 'Save item quantities' }).click();
+  await expect(page.getByRole('status')).toHaveText('Item sales saved');
+  await expect(page.locator('#step-items')).toContainText('Items value: ₹1,400');
+
+  // next day: the box starts at the last price used
+  await page.getByRole('button', { name: 'Next ›' }).click();
+  await expect(page.getByLabel('Surmai Fry price today')).toHaveValue('350');
+});
+
 test('shortcut hints can be hidden', async ({ page, isMobile }) => {
   test.skip(isMobile, 'the phone app shows no shortcut hints');
   await openPage(page, 'dashboard');
