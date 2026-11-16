@@ -489,7 +489,7 @@ kbd {
 .todo a.go { font-size: 13px; white-space: nowrap; text-decoration: none; }
 
 /* compact period tiles */
-.period { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; }
+.period { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0; }
 .period > div { padding: 0 12px; border-left: 1px solid var(--line); }
 .period > div:first-child { border-left: none; padding-left: 0; }
 .period .label { font-size: 12px; color: var(--muted); }
@@ -521,8 +521,11 @@ kbd {
 @media (max-width: 760px) {
   .hero { grid-template-columns: minmax(0, 1fr); gap: 16px; }
   .hero-num { font-size: 28px; }
-  .period > div { padding: 0 8px; }
-  .period .value { font-size: 15px; }
+  /* phone: the four numbers sit 2 × 2 */
+  .period { grid-template-columns: repeat(2, minmax(0, 1fr)); row-gap: 12px; }
+  .period > div { padding: 0 10px; }
+  .period > div:nth-child(odd) { border-left: none; padding-left: 0; }
+  .period .value { font-size: 17px; }
   .steps { flex-wrap: nowrap; overflow-x: auto; margin: 0 -12px 12px; padding: 0 12px; scrollbar-width: none; }
   .steps .step { flex-shrink: 0; }
   .daybar {
@@ -552,6 +555,9 @@ button:not(:disabled):active, .btn:active { transform: translateY(1px); }
   button.link { min-height: 40px; }
   .quick button { min-height: 56px; }
 }
+
+/* Settings → "Show keyboard shortcut hints" off */
+.hide-hints .nav a .key, .hide-hints .kbd-hint { display: none !important; }
 
 /* Android app: keep clear of the status bar and gesture bar */
 :root { --safe-top: 0px; --safe-bottom: 0px; }

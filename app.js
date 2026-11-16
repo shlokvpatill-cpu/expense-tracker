@@ -12,8 +12,9 @@ let idb = null;
 let S = null; // whole app state (everything except file blobs)
 
 const DEFAULT_CATEGORIES = [
-  'Groceries & Raw Material', 'Vegetables', 'Milk & Dairy', 'Gas / Fuel', 'Electricity', 'Water',
-  'Rent', 'Repairs & Maintenance', 'License Renewal', 'Packaging', 'Cleaning', 'Transport', 'Miscellaneous'
+  'Groceries & Raw Material', 'Vegetables', 'Meat and Fish', 'Chapati, Pav & Bhakri', 'Milk & Dairy',
+  'Cold Drinks & Beverages', 'Gas / Fuel', 'Electricity', 'Water', 'Rent', 'Repairs & Maintenance',
+  'Kitchen Utensils & Equipment', 'Packaging', 'Cleaning', 'License Renewal', 'Transport', 'Miscellaneous'
 ];
 
 function defaultState() {
@@ -739,7 +740,12 @@ const UI = {
   date: today(),
   month: thisMonth(),
   expFilter: { cat: '', paidBy: '', vendor: '', q: '' },
-  billFilter: { cat: '', month: '', q: '' },
+  billFilter: { cat: '', q: '' },
+  expPeriod: newPeriod(),
+  vendorPeriod: newPeriod(),
+  creditPeriod: newPeriod(),
+  itemPeriod: newPeriod(),
+  billPeriod: newPeriod('all'),
   itemDate: today(),
   reportYear: String(new Date().getFullYear()),
   ownerMonth: thisMonth(),
@@ -795,6 +801,7 @@ let appliedTheme = null;
 function applyTheme() {
   const t = S.settings.theme || 'light';
   document.documentElement.dataset.theme = t;
+  document.documentElement.classList.toggle('hide-hints', !!S.settings.hideHints);
   if (t !== appliedTheme && native && native.setTheme) native.setTheme(t);
   appliedTheme = t;
   // window / browser bar colour matches the page background of the theme in use
@@ -909,7 +916,7 @@ function pageDashboard() {
 
   const quick = `<div class="quick">
       <button ${act(goDaily)}><b>Today's entry</b><small>${saleToday ? 'Sales ✓' : 'Sales not entered'} · ${plural(expsToday, 'expense')}</small></button>
-      <button class="ghost" ${act(() => bulkExpenseModal({ date: t }))}><b>+ Add expense</b><small>${isApp ? 'With bill photo' : 'Ctrl+E'}</small></button>
+      <button class="ghost" ${act(() => bulkExpenseModal({ date: t }))}><b>+ Add expense</b><small>${isApp ? 'With bill photo' : '<span class="kbd-hint">Ctrl+E · </span>With bill photo'}</small></button>
       <button class="ghost" ${act(() => { location.hash = 'credit'; })}><b>Credit payment</b><small>${owing.length ? `${plural(owing.length, 'customer')} owe` : 'Nobody owes'}</small></button>
       <button class="ghost" ${act(() => { location.hash = 'vendors'; })}><b>Pay a vendor</b><small>${vendorList.length ? `${plural(vendorList.length, 'vendor')} pending` : 'All paid'}</small></button>
     </div>`;
@@ -940,7 +947,8 @@ function pageDashboard() {
     <div class="period">
       <div><div class="label">Business</div><div class="value">${money(x.business)}</div><div class="sub">${plural(x.days, "day")} entered</div></div>
       <div><div class="label">All costs</div><div class="value">${money(x.expenses + x.bonus + x.salary)}</div><div class="sub">incl. salaries ${money(x.salary)}</div></div>
-      <div><div class="label">Net profit</div><div class="value ${x.net >= 0 ? 'good' : 'bad'}">${money(x.net)}</div><div class="sub">Owners took ${money(x.withdrawn)}</div></div>
+      <div><div class="label">Net profit</div><div class="value ${x.net >= 0 ? 'good' : 'bad'}">${money(x.net)}</div><div class="sub">before owners' cut</div></div>
+      <div><div class="label">Left after owners</div><div class="value ${x.net - x.withdrawn >= 0 ? '' : 'bad'}">${money(x.net - x.withdrawn)}</div><div class="sub">Owners took ${money(x.withdrawn)}</div></div>
     </div></div>`;
   const pts = periodPoints(addDays(t, -29), t, 'day');
 
@@ -950,6 +958,7 @@ function pageDashboard() {
         <div class="eyebrow">Today · ${fmtDay(t)} · net profit so far</div>
         <div class="hero-num ${d.net >= 0 ? 'good' : 'bad'}" data-testid="today-net">${money(d.net)}</div>
         <div class="hero-sub" data-testid="today-sub">Business <b>${money(d.business)}</b> − costs <b>${money(costs)}</b>${margin != null ? ` · ${margin}% margin` : ''}</div>
+        <div class="hero-sub" data-testid="today-left">Owners took <b>${money(d.withdrawn)}</b> · <b class="${d.net - d.withdrawn < 0 ? 'neg' : ''}">${money(d.net - d.withdrawn)}</b> left in the business</div>
         ${flow}
       </div>
       ${quick}
@@ -1221,6 +1230,41 @@ const narrow = window.matchMedia('(max-width: 1000px)'); // column headings are 
 const rowFiles = row => [...row.querySelectorAll('[data-f="files"]')].flatMap(i => [...i.files]);
 
 /* Multi-row entry: type every expense of the day in one go and save them together. */
+/* ---------- automatic category ----------
+   Typing a description picks its category: first from how the same thing was filed before
+   ("Chapati (350)" and "chapati 300" count as the same thing), then from common words.
+   Choosing a category by hand in a row always wins over the guess. */
+const CATEGORY_WORDS = [
+  ['Meat and Fish', /mutton|chicken|fish|surmai|rawas|bangda|pomfret|prawn|kolambi|bombil|mackerel|keema|meat/],
+  ['Chapati, Pav & Bhakri', /\bpav\b|chapati|roti|bhakri|bhakari|bread|\bbuns?\b/],
+  ['Milk & Dairy', /milk|doodh|chaas|curd|dahi|paneer|butter|ghee|cream|cheese/],
+  ['Cold Drinks & Beverages', /pepsi|coke|cola|sprite|thums|oxycool|soda|kokam|juice|water bottle|bisleri|coffee|chai patti|tea powder/],
+  ['Vegetables', /bhaji|vegetable|sabzi|onion|kanda|potato|batata|popato|poptato|tomato|garlic|lasun|ginger|adrak|lemon|coconut|mirchi|chil+i|coriander|kothimbir|methi|palak|cabbage|carrot|peas|capsicum|cucumber|brinjal/],
+  ['Gas / Fuel', /\bgas\b|cylinder|petrol|diesel|kerosene|charcoal|\bcoal\b/],
+  ['Electricity', /electricity|light bill|mseb|msedcl|adani elec|tata power/],
+  ['Water', /water tanker|water bill|tanker/],
+  ['Rent', /\brent\b/],
+  ['Repairs & Maintenance', /repair|fixing|plumber|electrician|carpenter|servicing|charger|mixer|cooker|fridge|freezer|\bfan\b/],
+  ['Kitchen Utensils & Equipment', /thermos|tawa|utensil|vessel|bhagona|kadai|steel plate|ladle|knife|\bspoons?\b|tongs/],
+  ['Packaging', /parcel|packing|packaging|container|carry bag|paper dish|paper glass|use and throw|cutlery|\bfoil\b|butter paper|tissue/],
+  ['Cleaning', /cleaning|washing powder|detergent|soap|handwash|phenyl|harpic|broom|\bmop\b|scrub|dish ?wash|\bvim\b/],
+  ['License Renewal', /licen[cs]e|fssai|renewal|permit/],
+  ['Transport', /transport|tempo|\bauto\b|rickshaw|delivery charge|courier/],
+  ['Groceries & Raw Material', /\boil\b|\brice\b|atta|maida|rava|besan|\bdal\b|salt|sugar|masala|spice|haldi|jeera|farsan|snacks|\beggs?\b|blinkit|zepto|dmart|grocery|kirana/]
+];
+const descKey = d => String(d || '').toLowerCase()
+  .replace(/\(.*?\)/g, ' ').replace(/\b\d+(\.\d+)?\s*(kg|kgs|g|gm|gms|l|ltr|litre|liter|ml|pcs|pc|box|boxes|cans?|nos?|x)?\b/g, ' ')
+  .replace(/[^a-z& ]+/g, ' ').replace(/\s+/g, ' ').trim();
+function guessCategory(desc) {
+  const d = String(desc || '').trim().toLowerCase(), k = descKey(desc), cats = S.settings.categories;
+  if (!k) return '';
+  const past = S.expenses.filter(e => cats.includes(e.category) && e.category !== 'Miscellaneous').sort(byDateDesc);
+  const same = past.find(e => (e.desc || '').trim().toLowerCase() === d) || past.find(e => descKey(e.desc) === k);
+  if (same) return same.category;
+  const hit = CATEGORY_WORDS.find(([c, re]) => cats.includes(c) && re.test(d));
+  return hit ? hit[0] : '';
+}
+
 function bulkExpenseModal(preset = {}) {
   const LICENSE = 'License Renewal';
   const recent = S.expenses.slice().sort(byDateDesc);
@@ -1284,7 +1328,7 @@ function bulkExpenseModal(preset = {}) {
       <datalist id="descList">${descs}</datalist>
       <div class="bulk-foot">
         <button type="button" class="ghost" data-add>+ Add row</button>
-        <span class="hint" style="margin:0"><kbd>Enter</kbd> next row · <kbd>Ctrl</kbd>+<kbd>Enter</kbd> save all · picking a past description fills in its category &amp; vendor</span>
+        <span class="hint kbd-hint" style="margin:0"><kbd>Enter</kbd> description → amount → next row · <kbd>Ctrl</kbd>+<kbd>Enter</kbd> save all · the category is picked from the description</span>
         <span class="bulk-total" id="bulkTotal">Total ₹0</span>
       </div>
       <div class="actions"><button type="button" class="ghost" ${act(requestClose)}>Cancel</button><button type="submit">Save all</button></div>
@@ -1318,6 +1362,10 @@ function bulkExpenseModal(preset = {}) {
 
   rowsEl.addEventListener('input', e => {
     const row = e.target.closest('.bulk-row');
+    if (e.target.dataset.f === 'desc' && !row.dataset.catTouched) {
+      const g = guessCategory(e.target.value);
+      if (g) setCategory(row, g);
+    }
     // always keep one empty row at the bottom, ready to type in
     if (row === rowsEl.lastElementChild && !isEmpty(row)) addRow();
     if (e.target.dataset.f === 'amount') updateTotal();
@@ -1349,14 +1397,13 @@ function bulkExpenseModal(preset = {}) {
     updateTotal();
   });
   rowsEl.addEventListener('keydown', e => {
-    // Enter jumps to the same box in the next row instead of saving the form
+    // Enter: description → its amount → the next row's description (never saves the form)
     if (e.key !== 'Enter' || e.ctrlKey || e.target.tagName === 'BUTTON') return;
     e.preventDefault();
     const row = e.target.closest('.bulk-row');
+    if (e.target.dataset.f === 'desc') { const a = field(row, 'amount'); a.focus(); a.select(); return; }
     const next = row.nextElementSibling || addRow();
-    const f = e.target.dataset.f;
-    const target = field(next, f && f !== 'files' ? f : 'desc');
-    (target.disabled ? field(next, 'desc') : target).focus();
+    field(next, 'desc').focus();
   });
   modal.querySelector('[data-add]').addEventListener('click', () => addRow(null, true));
   modal.querySelector('[data-copy]').addEventListener('click', () => {
@@ -1437,10 +1484,10 @@ function deleteExpense(e) {
 }
 
 function pageExpenses() {
-  const ym = UI.month, F = UI.expFilter;
-  setTools(`${monthPicker(ym, m => { UI.month = m; render(); })}
-    <button ${act(() => expenseModal())}>+ Add expense</button>`);
-  let list = S.expenses.filter(e => e.date.startsWith(ym));
+  const F = UI.expFilter, r = periodRange(UI.expPeriod);
+  setTools(`<button ${act(() => expenseModal())}>+ Add expense</button>`);
+  const inR = S.expenses.filter(e => inPeriod(r, e.date));
+  let list = inR.slice();
   const monthTotal = sum(list, e => e.amount);
   if (F.cat) list = list.filter(e => e.category === F.cat);
   if (F.paidBy) list = list.filter(e => (e.paidBy || 'business') === F.paidBy);
@@ -1449,7 +1496,7 @@ function pageExpenses() {
   list.sort(byDateDesc);
 
   const byCat = {};
-  for (const e of S.expenses.filter(e => e.date.startsWith(ym))) byCat[e.category] = (byCat[e.category] || 0) + num(e.amount);
+  for (const e of inR) byCat[e.category] = (byCat[e.category] || 0) + num(e.amount);
   const catRows = Object.entries(byCat).sort((a, b) => b[1] - a[1]).map(([c, a]) =>
     `<tr class="clickable" ${act(() => { UI.expFilter.cat = c; render(); })}><td>${esc(c)}</td><td class="num">${money(a)}</td><td class="num muted">${monthTotal ? Math.round(a / monthTotal * 100) : 0}%</td></tr>`);
 
@@ -1464,14 +1511,15 @@ function pageExpenses() {
     <td class="num"><button class="link" ${act(() => expenseModal(e))}>Edit</button><button class="link del" aria-label="Delete" title="Delete" ${act(() => deleteExpense(e))}>✕</button></td></tr>`);
   if (list.length) rows.push(`<tr class="total"><td colspan="5">Total (${list.length} entries)</td><td class="num">${money(sum(list, e => e.amount))}</td><td></td></tr>`);
 
-  return `<div class="stats">
-      ${stat('Expenses this month', money(monthTotal), 'accent')}
+  return `${periodPicker(UI.expPeriod)}
+    <div class="stats">
+      ${stat('Total expenses', money(monthTotal), 'accent', `${inR.length} entries`)}
       ${stat('Repairs & maintenance', money(byCat['Repairs & Maintenance'] || 0))}
       ${stat('License renewals', money(byCat['License Renewal'] || 0))}
-      ${stat('Vendor bills', money(sum(S.expenses.filter(e => e.date.startsWith(ym) && e.vendorId), e => e.amount)))}
+      ${stat('Vendor bills', money(sum(inR.filter(e => e.vendorId), e => e.amount)))}
     </div>
     <div class="grid g3" style="grid-template-columns:2fr 1fr">
-      <div class="card"><h2>${monthName(ym)}</h2>
+      <div class="card"><h2>${r.title}</h2>
         <div class="row no-print" style="margin-bottom:12px">
           ${sel('cat', catOptions(), 'Category')}
           ${sel('paidBy', paidByOptions().map(o => ({ value: o.value, label: paidByLabel(o.value) })), 'Paid from')}
@@ -1546,19 +1594,27 @@ function vendorLedger(vid) {
 
 function pageVendors() {
   setTools(`<button ${act(() => vendorModal())}>+ Add vendor</button>`);
-  const ym = thisMonth();
-  const list = S.vendors.map(v => ({ v, ...vendorBalance(v.id), month: sum(S.expenses.filter(e => e.vendorId === v.id && e.date.startsWith(ym)), e => e.amount) }))
+  const r = periodRange(UI.vendorPeriod);
+  const list = S.vendors.map(v => ({ v, ...vendorBalance(v.id),
+    month: sum(S.expenses.filter(e => e.vendorId === v.id && inPeriod(r, e.date)), e => e.amount),
+    paidIn: sum(S.vendorPayments.filter(p => p.vendorId === v.id && inPeriod(r, p.date)), p => p.amount) }))
     .sort((a, b) => b.pending - a.pending);
   const rows = list.map(x => `<tr class="clickable" ${act(() => vendorLedger(x.v.id))}>
     <td><b>${esc(x.v.name)}</b>${x.v.note ? `<br><small class="muted">${esc(x.v.note)}</small>` : ''}</td><td>${esc(x.v.phone)}</td>
-    <td class="num">${money(x.month)}</td><td class="num">${money(x.billed)}</td><td class="num">${money(x.paid)}</td>
+    <td class="num">${money(x.month)}</td><td class="num">${money(x.paidIn)}</td><td class="num muted">${money(x.billed)}</td><td class="num muted">${money(x.paid)}</td>
     <td class="num"><b class="${x.pending > 0 ? 'neg' : ''}">${money(x.pending)}</b></td>
     <td class="num"><button class="link" ${act((el, ev) => { ev.stopPropagation(); vendorModal(x.v); })}>Edit</button>
       <button class="link del" aria-label="Delete" title="Delete" ${act((el, ev) => { ev.stopPropagation(); deleteVendor(x.v); })}>✕</button></td></tr>`);
-  if (list.length) rows.push(`<tr class="total"><td colspan="2">Total</td><td class="num">${money(sum(list, x => x.month))}</td><td class="num">${money(sum(list, x => x.billed))}</td><td class="num">${money(sum(list, x => x.paid))}</td><td class="num">${money(sum(list, x => x.pending))}</td><td></td></tr>`);
-  return `<div class="card"><h2>All vendors</h2>
+  if (list.length) rows.push(`<tr class="total"><td colspan="2">Total</td><td class="num">${money(sum(list, x => x.month))}</td><td class="num">${money(sum(list, x => x.paidIn))}</td><td class="num">${money(sum(list, x => x.billed))}</td><td class="num">${money(sum(list, x => x.paid))}</td><td class="num">${money(sum(list, x => x.pending))}</td><td></td></tr>`);
+  return `${periodPicker(UI.vendorPeriod)}
+    <div class="stats">
+      ${stat('Bills in period', money(sum(list, x => x.month)), 'accent', r.title)}
+      ${stat('Paid in period', money(sum(list, x => x.paidIn)))}
+      ${stat('Pending now (all time)', money(sum(list, x => Math.max(0, x.pending))), sum(list, x => x.pending) > 0 ? 'bad' : '')}
+    </div>
+    <div class="card"><h2>All vendors</h2>
     <p class="hint">Click a vendor to see every bill and payment and to record a payment. Add vendor bills from the Expenses page or Daily Entry by choosing the vendor.</p>
-    ${table(['Vendor', 'Phone', { t: 'This month', cls: 'num' }, { t: 'Total bills', cls: 'num' }, { t: 'Paid', cls: 'num' }, { t: 'Pending', cls: 'num' }, ''], rows, 'No vendors yet – add your first vendor')}</div>`;
+    ${table(['Vendor', 'Phone', { t: 'Bills in period', cls: 'num' }, { t: 'Paid in period', cls: 'num' }, { t: 'All bills', cls: 'num' }, { t: 'All paid', cls: 'num' }, { t: 'Pending', cls: 'num' }, ''], rows, 'No vendors yet – add your first vendor')}</div>`;
 }
 
 function deleteVendor(v) {
@@ -1837,10 +1893,15 @@ function customerLedger(cid) {
 
 function pageCredit() {
   setTools(`<button ${act(() => customerModal())}>+ Add customer</button>`);
-  const list = S.customers.map(c => ({ c, ...customerBalance(c.id) })).sort((a, b) => b.pending - a.pending);
+  const r = periodRange(UI.creditPeriod);
+  const inR = S.creditTx.filter(t => !t.opening && inPeriod(r, t.date));
+  const list = S.customers.map(c => ({ c, ...customerBalance(c.id),
+    givenIn: sum(inR.filter(t => t.customerId === c.id && t.type === 'credit'), t => t.amount),
+    paidIn: sum(inR.filter(t => t.customerId === c.id && t.type === 'payment'), t => t.amount) })).sort((a, b) => b.pending - a.pending);
   const rows = list.map(x => `<tr class="clickable" ${act(() => customerLedger(x.c.id))}>
     <td><b>${esc(x.c.name)}</b>${x.c.note ? `<br><small class="muted">${esc(x.c.note)}</small>` : ''}</td><td>${esc(x.c.phone)}</td>
-    <td class="num">${money(x.credit)}</td><td class="num">${money(x.paid)}</td>
+    <td class="num">${money(x.givenIn)}</td><td class="num">${money(x.paidIn)}</td>
+    <td class="num muted">${money(x.credit)}</td><td class="num muted">${money(x.paid)}</td>
     <td class="num"><b class="${x.pending > 0 ? 'neg' : ''}">${money(x.pending)}</b></td>
     <td>${x.lastPay ? `${fmtDate(x.lastPay.date)} · ${money(x.lastPay.amount)}` : '<span class="muted">never</span>'}</td>
     <td class="num" style="white-space:nowrap"><button class="sm" ${act((el, ev) => { ev.stopPropagation(); creditTxModal(x.c.id, 'payment'); })}>Payment</button>
@@ -1848,14 +1909,16 @@ function pageCredit() {
       <button class="link" ${act((el, ev) => { ev.stopPropagation(); customerModal(x.c); })}>Edit</button>
       <button class="link del" aria-label="Delete" title="Delete" ${act((el, ev) => { ev.stopPropagation(); deleteCustomer(x.c); })}>✕</button></td></tr>`);
   const pending = sum(list, x => Math.max(0, x.pending));
-  return `<div class="stats">
+  return `${periodPicker(UI.creditPeriod)}
+    <div class="stats">
       ${stat('Total to collect', money(pending), pending > 0 ? 'bad' : '')}
       ${stat('Customers with dues', String(list.filter(x => x.pending > 0).length))}
-      ${stat('Collected this month', money(sum(S.creditTx.filter(t => t.type === 'payment' && t.date.startsWith(thisMonth())), t => t.amount)))}
+      ${stat('Credit given', money(sum(inR.filter(t => t.type === 'credit'), t => t.amount)), '', r.title)}
+      ${stat('Collected', money(sum(inR.filter(t => t.type === 'payment'), t => t.amount)), '', r.title)}
     </div>
     <div class="card"><h2>Regular customers</h2>
     <p class="hint">Click a customer to see every credit and payment with dates and the running balance.</p>
-    ${table(['Customer', 'Phone', { t: 'Credit taken', cls: 'num' }, { t: 'Paid', cls: 'num' }, { t: 'Left to pay', cls: 'num' }, 'Last payment', ''], rows, 'No customers yet')}</div>`;
+    ${table(['Customer', 'Phone', { t: 'Credit in period', cls: 'num' }, { t: 'Paid in period', cls: 'num' }, { t: 'All credit', cls: 'num' }, { t: 'All paid', cls: 'num' }, { t: 'Left to pay', cls: 'num' }, 'Last payment', ''], rows, 'No customers yet')}</div>`;
 }
 
 function deleteCustomer(c) {
@@ -1893,7 +1956,7 @@ function itemSummary(list) {
 }
 
 function pageItems() {
-  const d = UI.itemDate, ym = d.slice(0, 7);
+  const d = UI.itemDate, r = periodRange(UI.itemPeriod);
   const go = v => { UI.itemDate = v; render(); };
   setTools(`<button class="ghost" ${act(() => go(addDays(d, -1)))}>‹</button>
     <input type="date" aria-label="Day" value="${d}" style="width:160px" ${onChange(el => el.value && go(el.value))}>
@@ -1904,7 +1967,7 @@ function pageItems() {
   const dayRows = day.map(r => `<tr><td>${esc(r.name)}</td><td class="num">${r.qty}</td><td class="num">${money(r.qty ? r.amount / r.qty : 0)}</td><td class="num">${money(r.amount)}</td></tr>`);
   if (day.length) dayRows.push(`<tr class="total"><td>Total</td><td class="num">${sum(day, r => r.qty)}</td><td></td><td class="num">${money(sum(day, r => r.amount))}</td></tr>`);
 
-  const mon = itemSummary(S.itemSales.filter(x => x.date.startsWith(ym)));
+  const mon = itemSummary(S.itemSales.filter(x => inPeriod(r, x.date)));
   const monTotal = sum(mon, r => r.amount);
   const monRows = mon.map(r => `<tr><td>${esc(r.name)}</td><td class="num">${r.qty}</td><td class="num">${r.days.size}</td>
     <td class="num">${(r.qty / Math.max(1, r.days.size)).toFixed(1)}</td><td class="num">${money(r.amount)}</td>
@@ -1914,12 +1977,13 @@ function pageItems() {
     <td class="num"><button class="link" ${act(() => itemModal(it))}>Edit</button>
     <button class="link del" aria-label="Delete" title="Delete" ${act(() => confirmDel('menu item ' + it.name, () => { S.items = S.items.filter(x => x !== it); }))}>✕</button></td></tr>`);
 
-  return `<div class="grid g2">
+  return `${periodPicker(UI.itemPeriod)}
+  <div class="grid g2">
     <div>
       <div class="card"><h2>Items sold · ${fmtDay(d)}</h2>
         ${table(['Item', { t: 'Qty', cls: 'num' }, { t: 'Rate', cls: 'num' }, { t: 'Amount', cls: 'num' }], dayRows, 'No item quantities entered for this day')}</div>
-      <div class="card"><h2>Month summary · ${monthName(ym)}</h2>
-        ${table(['Item', { t: 'Total qty', cls: 'num' }, { t: 'Days sold', cls: 'num' }, { t: 'Avg / day', cls: 'num' }, { t: 'Amount', cls: 'num' }, { t: '%', cls: 'num' }], monRows, 'No item sales this month')}</div>
+      <div class="card"><h2>Summary · ${r.title}</h2>
+        ${table(['Item', { t: 'Total qty', cls: 'num' }, { t: 'Days sold', cls: 'num' }, { t: 'Avg / day', cls: 'num' }, { t: 'Amount', cls: 'num' }, { t: '%', cls: 'num' }], monRows, 'No item sales in this period')}</div>
     </div>
     <div class="card"><h2>Menu items<span class="spacer"></span><button class="sm" ${act(() => itemModal())}>+ Add item</button></h2>
       <p class="hint">Changing a price affects only new entries; past days keep the price they were saved with.</p>
@@ -1992,7 +2056,8 @@ function pageBills() {
   setTools(`<button ${act(uploadDocModal)}>+ Upload document</button>`);
   let list = S.files.slice().sort((a, b) => (a.date < b.date ? 1 : -1));
   if (F.cat) list = list.filter(f => f.category === F.cat);
-  if (F.month) list = list.filter(f => f.date.startsWith(F.month));
+  const r = periodRange(UI.billPeriod);
+  list = list.filter(f => inPeriod(r, f.date));
   if (F.q) { const q = F.q.toLowerCase(); list = list.filter(f => (f.title + ' ' + f.name).toLowerCase().includes(q)); }
   const cats = [...new Set(S.files.map(f => f.category))].sort();
   const totalKB = sum(S.files, f => f.size) / 1024;
@@ -2000,14 +2065,14 @@ function pageBills() {
     <div class="thumb" ${act(() => viewFile(f.id))} ${f.type.startsWith('image/') ? `data-thumb="${f.id}"` : ''}>${f.type === 'application/pdf' ? '📄' : '🖼️'}</div>
     <div class="meta"><b title="${esc(f.title)}">${esc(f.title || f.name)}</b>
       <span class="muted">${fmtDate(f.date)}</span><br><span class="pill">${esc(f.category)}</span></div></div>`).join('');
-  return `<div class="card">
+  return `${periodPicker(UI.billPeriod, { all: true })}
+  <div class="card">
     <p class="hint">Bills attached to expenses appear here automatically. Upload licenses, agreements and other papers with the button above.</p>
     <div class="row no-print" style="margin-bottom:14px">
       <div class="field"><label>Category</label><select ${onChange(el => { F.cat = el.value; render(); })}><option value="">All</option>
         ${cats.map(c => `<option ${F.cat === c ? 'selected' : ''}>${esc(c)}</option>`).join('')}</select></div>
-      <div class="field"><label>Month</label><input type="month" value="${F.month}" ${onChange(el => { F.month = el.value; render(); })}></div>
       <div class="field"><label>Search</label><input type="search" aria-label="Search" autocomplete="off" value="${esc(F.q)}" placeholder="Title or file name" ${onChange(el => { F.q = el.value.trim(); render(); })}></div>
-      ${F.cat || F.month || F.q ? `<button class="ghost" ${act(() => { UI.billFilter = { cat: '', month: '', q: '' }; render(); })}>Clear</button>` : ''}
+      ${F.cat || F.q || UI.billPeriod.mode !== 'all' ? `<button class="ghost" ${act(() => { UI.billFilter = { cat: '', q: '' }; UI.billPeriod = newPeriod('all'); render(); })}>Clear</button>` : ''}
     </div>
     <p class="muted" style="margin:0 0 10px">${list.length} file(s) shown · ${S.files.length} total · ${totalKB > 1024 ? (totalKB / 1024).toFixed(1) + ' MB' : totalKB.toFixed(0) + ' KB'} stored</p>
     ${list.length ? `<div class="files">${cards}</div>` : '<div class="empty">No files yet</div>'}</div>`;
@@ -2018,6 +2083,49 @@ function pageBills() {
    ================================================================ */
 
 /* the period the reports page is showing: a week, a month, or any two dates */
+/* ---------- period picker: Weekly / Monthly / Custom range (and All time where it fits) ----------
+   Each page keeps its own period, so changing it on one page does not change another. */
+function newPeriod(mode = 'month') { return { mode, week: today(), from: addDays(today(), -29), to: today(), month: thisMonth() }; }
+function periodRange(P) {
+  if (P.mode === 'all') return { from: '0000-01-01', to: '9999-12-31', title: 'All time' };
+  if (P.mode === 'week') {
+    const s = weekStart(P.week), e = addDays(s, 6);
+    return { from: s, to: e, title: `Week of ${fmtDate(s)} – ${fmtDate(e)}` };
+  }
+  if (P.mode === 'custom') {
+    const a = P.from <= P.to ? P.from : P.to, b = P.from <= P.to ? P.to : P.from;
+    return { from: a, to: b, title: `${fmtDate(a)} – ${fmtDate(b)}` };
+  }
+  return { from: P.month + '-01', to: monthEnd(P.month), title: monthName(P.month) };
+}
+const inPeriod = (r, d) => d >= r.from && d <= r.to;
+function periodPicker(P, { all = false } = {}) {
+  const tab = (m, label) => `<button class="${P.mode === m ? 'on' : ''}" ${P.mode === m ? 'aria-pressed="true"' : 'aria-pressed="false"'} ${act(() => { P.mode = m; render(); })}>${label}</button>`;
+  let nav = '';
+  if (P.mode === 'week') {
+    const s = weekStart(P.week);
+    nav = `<button class="ghost" aria-label="Previous week" ${act(() => { P.week = addDays(s, -7); render(); })}>‹</button>
+      <input type="date" aria-label="Week" value="${s}" style="width:160px" title="Pick any day of the week" ${onChange(el => { if (el.value) { P.week = el.value; render(); } })}>
+      <button class="ghost" aria-label="Next week" ${act(() => { P.week = addDays(s, 7); render(); })}>›</button>
+      ${weekStart(today()) !== s ? `<button class="ghost" ${act(() => { P.week = today(); render(); })}>This week</button>` : ''}`;
+  } else if (P.mode === 'custom') {
+    const t = today();
+    const quick = [
+      ['Last 7 days', addDays(t, -6), t], ['Last 30 days', addDays(t, -29), t], ['Last 3 months', addDays(t, -90), t],
+      ['This year', t.slice(0, 4) + '-01-01', t], ['Last 12 months', addMonths(t.slice(0, 7), -11) + '-01', t]
+    ];
+    nav = `<div class="field" style="flex:0 0 160px"><label>From</label><input type="date" value="${P.from}" ${onChange(el => { if (el.value) { P.from = el.value; render(); } })}></div>
+      <div class="field" style="flex:0 0 160px"><label>To</label><input type="date" value="${P.to}" ${onChange(el => { if (el.value) { P.to = el.value; render(); } })}></div>
+      <div class="field" style="flex:0 0 170px"><label>Quick pick</label><select ${onChange(el => { const q = quick[+el.value]; if (q) { P.from = q[1]; P.to = q[2]; render(); } })}>
+        <option value="">Choose…</option>${quick.map((q, i) => `<option value="${i}" ${P.from === q[1] && P.to === q[2] ? 'selected' : ''}>${q[0]}</option>`).join('')}</select></div>`;
+  } else if (P.mode === 'month') {
+    nav = monthPicker(P.month, m => { P.month = m; render(); });
+  }
+  return `<div class="card no-print" style="padding:12px 16px"><div class="row">
+    <div class="tabs" style="margin:0" role="group" aria-label="Period">${tab('week', 'Weekly')}${tab('month', 'Monthly')}${tab('custom', 'Custom range')}${all ? tab('all', 'All time') : ''}</div>
+    <span style="flex:1"></span>${nav}</div></div>`;
+}
+
 function reportRange() {
   const R = UI.rep;
   if (R.mode === 'week') {
@@ -2133,6 +2241,7 @@ function pageReports() {
       ${stat('Net profit', money(f.net), f.net >= 0 ? 'good' : 'bad', dayCount ? `Avg ${money(f.net / dayCount)} / day` : '')}
       ${stat('Profit margin', f.business ? Math.round(f.net / f.business * 100) + '%' : '—')}
       ${stat('Taken by owners', money(f.withdrawn))}
+      ${stat('Left after owners', money(f.net - f.withdrawn), f.net - f.withdrawn >= 0 ? 'accent' : 'bad', 'Net profit − owners’ cut')}
     </div>
     <div class="card"><h2>${groupWord} ${all ? 'business, costs &amp; profit' : 'net profit'} · ${esc(rg.title)}<span class="spacer"></span>${chartTools}</h2>
       ${hasDays ? lineChart(pts, chartSeries, { height: 260 }) : '<div class="empty">This period has not started yet</div>'}</div>
@@ -2239,6 +2348,8 @@ function pageSettings() {
         <div class="field" style="margin-top:14px"><label>Theme</label>
           <div class="tabs" style="margin:0">${[['light', '☀️ Light'], ['dark', '🌙 Dark'], ['system', isApp ? '📱 Same as phone' : '🖥️ Same as Windows']].map(([v, l]) =>
             `<button class="${(S.settings.theme || 'light') === v ? 'on' : ''}" ${act(() => setTheme(v))}>${l}</button>`).join('')}</div></div>
+        ${isApp ? '' : `<label class="check" style="margin-top:14px"><input type="checkbox" ${S.settings.hideHints ? '' : 'checked'} ${onChange(async el => { S.settings.hideHints = !el.checked; applyTheme(); await save(); render(); })}>
+          Show keyboard shortcut hints (in the side menu and while adding expenses)</label>`}
         ${isApp ? '' : `<div class="shortcuts"><b>Keyboard shortcuts</b>
           <span><kbd>Ctrl</kbd>+<kbd>1</kbd>…<kbd>0</kbd></span><span>open a page (in the order of the side menu)</span>
           <span><kbd>Ctrl</kbd>+<kbd>E</kbd></span><span>add expenses</span>

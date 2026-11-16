@@ -86,7 +86,7 @@ test('dashboard lists what needs attention and the daily steps show progress', a
 test('an expense shows in the list and the month total', async ({ page }) => {
   await addExpense(page, { desc: '20 L milk', amount: 800 });
   await expect(page.locator('#view table').getByText('20 L milk')).toBeVisible();
-  await expect(tile(page, 'Expenses this month')).toHaveText('₹800');
+  await expect(tile(page, 'Total expenses')).toHaveText('₹800');
 });
 
 test('vendor bill on credit, then a part payment', async ({ page }) => {
@@ -127,7 +127,7 @@ test('customer credit and payment keep the right balance', async ({ page }) => {
   await payment.getByLabel('Amount *').fill('100');
   await payment.getByRole('button', { name: 'Save' }).click();
   await expect(tile(page, 'Total to collect')).toHaveText('₹200');
-  await expect(tile(page, 'Collected this month')).toHaveText('₹100');
+  await expect(tile(page, 'Collected')).toHaveText('₹100');
 });
 
 test('profit report: sales minus expenses', async ({ page }) => {
@@ -143,6 +143,86 @@ test('profit report: sales minus expenses', async ({ page }) => {
   await expect(tile(page, 'All expenses')).toHaveText('₹800');
   await expect(tile(page, 'Net profit')).toHaveText('₹6,200');
   await expect(tile(page, 'Profit margin')).toHaveText('89%');
+  await expect(tile(page, 'Left after owners')).toHaveText('₹6,200');
+});
+
+test('expenses, vendors, credit, items and bills follow the chosen period', async ({ page }) => {
+  await addExpense(page, { desc: 'Gas cylinder', amount: 950 });
+  const period = page.getByRole('group', { name: 'Period' });
+  // this week: shown
+  await period.getByRole('button', { name: 'Weekly' }).click();
+  await expect(page.locator('#view table').getByText('Gas cylinder')).toBeVisible();
+  await expect(tile(page, 'Total expenses')).toHaveText('₹950');
+  // the week before: not shown
+  await page.getByRole('button', { name: 'Previous week' }).click();
+  await expect(tile(page, 'Total expenses')).toHaveText('₹0');
+  // custom range, last 30 days: shown again
+  await period.getByRole('button', { name: 'Custom range' }).click();
+  await page.getByLabel('Quick pick').selectOption({ label: 'Last 30 days' });
+  await expect(tile(page, 'Total expenses')).toHaveText('₹950');
+  // every other page has its own picker
+  for (const hash of ['vendors', 'credit', 'items', 'bills']) {
+    await openPage(page, hash);
+    await expect(page.getByRole('group', { name: 'Period' }).getByRole('button', { name: 'Custom range' })).toBeVisible();
+  }
+  await expect(page.getByRole('group', { name: 'Period' }).getByRole('button', { name: 'All time' })).toHaveAttribute('aria-pressed', 'true');
+});
+
+test('adding expenses: category follows the description, Enter goes description → amount → next row', async ({ page }) => {
+  await openPage(page, 'expenses');
+  await page.getByRole('button', { name: '+ Add expense' }).click();
+  const modal = page.getByRole('dialog', { name: 'Add expenses' });
+  const rows = modal.locator('.bulk-row');
+
+  await rows.nth(0).locator('[data-f=desc]').fill('Chapati (350)');
+  await expect(rows.nth(0).locator('[data-f=category]')).toHaveValue('Chapati, Pav & Bhakri');
+  await rows.nth(0).locator('[data-f=desc]').press('Enter');
+  await expect(rows.nth(0).locator('[data-f=amount]')).toBeFocused();
+  await page.keyboard.type('350');
+  await page.keyboard.press('Enter');
+  await expect(rows.nth(1).locator('[data-f=desc]')).toBeFocused();
+
+  // a category picked by hand is kept, whatever is typed after
+  await rows.nth(1).locator('[data-f=category]').selectOption('Miscellaneous');
+  await rows.nth(1).locator('[data-f=desc]').fill('Pepsi 2 box');
+  await expect(rows.nth(1).locator('[data-f=category]')).toHaveValue('Miscellaneous');
+  await rows.nth(2).locator('[data-f=desc]').fill('Pepsi 2 box');
+  await expect(rows.nth(2).locator('[data-f=category]')).toHaveValue('Cold Drinks & Beverages');
+});
+
+test('shortcut hints can be hidden', async ({ page, isMobile }) => {
+  test.skip(isMobile, 'the phone app shows no shortcut hints');
+  await openPage(page, 'dashboard');
+  await expect(page.locator('#nav .key').first()).toBeVisible();
+  await openPage(page, 'settings');
+  await page.getByLabel(/Show keyboard shortcut hints/).uncheck();
+  await expect(page.locator('#nav .key').first()).toBeHidden();
+  await page.reload();
+  await expect(page.locator('#nav .key').first()).toBeHidden();
+});
+
+test('amount left after the owners take their cut', async ({ page }) => {
+  await openPage(page, 'owners');
+  await page.getByRole('button', { name: '+ Add owner' }).click();
+  const add = page.getByRole('dialog', { name: 'Add owner' });
+  await add.getByLabel(/name/i).first().fill('Nitin');
+  await add.getByLabel(/share/i).fill('100');
+  await add.getByRole('button', { name: 'Save' }).click();
+
+  await openPage(page, 'daily');
+  await page.getByLabel('Cash received from customers').fill('5000');
+  await page.getByRole('button', { name: 'Save sales' }).click();
+  await expect(page.getByRole('status')).toHaveText('Sales saved');
+  const took = page.locator('form[data-form=withdraw]');
+  await took.getByLabel('Amount taken').fill('1500');
+  await took.getByRole('button', { name: 'Add' }).click();
+
+  await openPage(page, 'dashboard');
+  await expect(page.getByTestId('today-left')).toContainText('Owners took ₹1,500 · ₹3,500 left in the business');
+  const week = page.locator('.card', { hasText: 'This week' });
+  await expect(week.locator('.period > div', { hasText: 'Left after owners' }).locator('.value')).toHaveText('₹3,500');
+  await openPage(page, 'reports');
+  await expect(tile(page, 'Left after owners')).toHaveText('₹3,500');
 });
 
 test('every button and box has a name screen readers can read', async ({ page }) => {

@@ -20,7 +20,7 @@ const cloud = (() => {
   const CFG_KEY = 'ndp-cloud';
   const LIST_KINDS = ['owners', 'helpers', 'vendors', 'customers', 'items', 'itemSales', 'expenses',
     'vendorPayments', 'helperTx', 'ownerTx', 'creditTx', 'files'];
-  const LOCAL_SETTINGS = ['theme', 'lastBackup']; // each device keeps its own
+  const LOCAL_SETTINGS = ['theme', 'lastBackup', 'hideHints']; // each device keeps its own
   const PAGE = 1000, BATCH = 400;
 
   // connection details stay on this device only (never in backups). The sign-in token changes
