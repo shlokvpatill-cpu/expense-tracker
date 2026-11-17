@@ -2,10 +2,13 @@
 
 An expense tracker I built for a restaurant, which they now use every day to run their accounts. It started as a simple way to note down the day's sales and expenses, and grew into a complete daily accounts app for the counter, on a Windows PC and an Android phone.
 
+See [CHANGELOG.md](CHANGELOG.md) for what changed in each version.
+
 ## What it does
 
-- **Daily entry:** cash and online (UPI) sales, items sold, expenses with bill photos, staff bonuses, money taken by the owners and customer credit, filled in step by step with a progress strip that shows what's done for the day.
+- **Daily entry:** cash and online (UPI) sales, items sold (including items whose price changes daily, like fish), expenses with bill photos, staff bonuses, money taken by the owners and customer credit, filled in step by step with a progress strip that shows what's done for the day.
 - **Dashboard:** today's net profit at a glance, where the money came from and went, and one list of everything that needs attention (vendor dues, credit to collect, salaries due, licences expiring, backups).
+- **Smart expense entry:** categories picked from the description, one-tap buttons for usual items, the amount worked out from the quantity at the usual rate, and a warning for duplicates.
 - **Vendors:** bills on credit, part payments and what's still pending to each supplier.
 - **Staff:** monthly salaries, advances and daily bonuses.
 - **Owners:** daily drawings, money spent from their own pocket, and each owner's month-end profit share.
